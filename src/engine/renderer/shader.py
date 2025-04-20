@@ -1,33 +1,43 @@
+from pathlib import Path
+
 from OpenGL.GL import *
 
-def compile_shader(shader_type, path):
-    with open(f'shaders/{path}') as f:
-        source = f.read()
 
-    shader = glCreateShader(shader_type)
-    glShaderSource(shader, source)
-    glCompileShader(shader)
+class Shader:
+    def __init__(self, vertex_file, fragment_file):
+        vertex_shader = self.compile_shader(GL_VERTEX_SHADER, vertex_file)
+        fragment_shader = self.compile_shader(GL_FRAGMENT_SHADER, fragment_file)
 
-    if not glGetShaderiv(shader, GL_COMPILE_STATUS):
-        error = glGetShaderInfoLog(shader).decode()
-        raise RuntimeError(f'Shader compile failed: {error}')
+        self.program = glCreateProgram()
+        glAttachShader(self.program, vertex_shader)
+        glAttachShader(self.program, fragment_shader)
+        glLinkProgram(self.program)
 
-    return shader
+        if not glGetProgramiv(self.program, GL_LINK_STATUS):
+            error = glGetProgramInfoLog(self.program).decode()
+            raise RuntimeError(f'Shader link failed: {error}')
 
-def compile_shader_program(vertex_path, fragment_path):
-    vertex_shader = compile_shader(GL_VERTEX_SHADER, vertex_path)
-    fragment_shader = compile_shader(GL_FRAGMENT_SHADER, fragment_path)
+        glDeleteShader(vertex_shader)
+        glDeleteShader(fragment_shader)
 
-    program = glCreateProgram()
-    glAttachShader(program, vertex_shader)
-    glAttachShader(program, fragment_shader)
-    glLinkProgram(program)
+    def use(self):
+        glUseProgram(self.program)
 
-    if not glGetProgramiv(program, GL_LINK_STATUS):
-        error = glGetProgramInfoLog(program).decode()
-        raise RuntimeError(f'Shader link failed: {error}')
+    def compile_shader(self, shader_type, path):
+        with open(Path(__file__).resolve().parent/'shaders'/path) as f:
+            source = f.read()
 
-    glDeleteShader(vertex_shader)
-    glDeleteShader(fragment_shader)
+        shader = glCreateShader(shader_type)
+        glShaderSource(shader, source)
+        glCompileShader(shader)
 
-    return program
+        if not glGetShaderiv(shader, GL_COMPILE_STATUS):
+            error = glGetShaderInfoLog(shader).decode()
+            raise RuntimeError(f'Shader compile failed: {error}')
+
+        return shader
+
+
+class SimpleShader(Shader):
+    def __init__(self):
+        super().__init__('simple/vert.glsl', 'simple/frag.glsl')
