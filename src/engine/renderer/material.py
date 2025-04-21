@@ -3,7 +3,7 @@ from pathlib import Path
 from OpenGL.GL import *
 
 
-class Shader:
+class Material:
     def __init__(self, vertex_file, fragment_file):
         vertex_shader = self.compile_shader(GL_VERTEX_SHADER, vertex_file)
         fragment_shader = self.compile_shader(GL_FRAGMENT_SHADER, fragment_file)
@@ -23,6 +23,9 @@ class Shader:
     def use(self):
         glUseProgram(self.program)
 
+    def set_mat4(self, uniform, mat):
+        glUniformMatrix4fv(glGetUniformLocation(self.program, uniform), 1, GL_FALSE, mat)
+
     def compile_shader(self, shader_type, path):
         with open(Path(__file__).resolve().parent/'shaders'/path) as f:
             source = f.read()
@@ -37,7 +40,10 @@ class Shader:
 
         return shader
 
+    def destroy(self):
+        glDeleteProgram(self.program)
 
-class SimpleShader(Shader):
+
+class BasicMaterial(Material):
     def __init__(self):
         super().__init__('simple/vert.glsl', 'simple/frag.glsl')

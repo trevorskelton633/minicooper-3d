@@ -12,12 +12,17 @@ class Window:
         pygame.display.set_mode(resolution, DOUBLEBUF | OPENGL)
         pygame.display.set_caption(title)
 
+        self.width, self.height = resolution
+
         self.clock = pygame.time.Clock()
         self.should_close = False
 
     def update(self):
         pygame.display.flip()
         self.clock.tick(60)
+
+    def get_time(self):
+        return pygame.time.get_ticks() / 1000.0
 
     def poll_events(self):
         for event in pygame.event.get():

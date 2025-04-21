@@ -1,1 +1,12 @@
-.venv
+# Ignore all __pycache__ folders anywhere
+__pycache__/
+**/__pycache__/
+
+# Bytecode files
+*.py[cod]
+*$py.class
+
+# Ignore virtual environment
+.venv/
+.env/
+venv/
