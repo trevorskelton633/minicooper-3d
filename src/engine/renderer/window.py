@@ -1,37 +1,68 @@
 import pygame
-from pygame.locals import *
 
+from pygame.locals import *
 from OpenGL.GL import *
 
+
 class Window:
-    def __init__(self, title, resolution):
+    def __init__(self, width=800, height=600, title="OpenGL Window", vsync=True):
+        self.width = width
+        self.height = height
+        self.title = title
+        self.running = True
+
         pygame.init()
+        pygame.display.set_caption(title)
+        pygame.display.set_mode((self.width, self.height), DOUBLEBUF | OPENGL)
         pygame.display.gl_set_attribute(pygame.GL_CONTEXT_MAJOR_VERSION, 3)
         pygame.display.gl_set_attribute(pygame.GL_CONTEXT_MINOR_VERSION, 3)
         pygame.display.gl_set_attribute(pygame.GL_CONTEXT_PROFILE_MASK, pygame.GL_CONTEXT_PROFILE_CORE)
-        pygame.display.set_mode(resolution, DOUBLEBUF | OPENGL)
-        pygame.display.set_caption(title)
 
-        self.width, self.height = resolution
+        if vsync:
+            pygame.display.gl_set_attribute(pygame.GL_SWAP_CONTROL, 1)
+        else:
+            pygame.display.gl_set_attribute(pygame.GL_SWAP_CONTROL, 0)
 
         self.clock = pygame.time.Clock()
-        self.should_close = False
+        self._init_gl()
 
-    def update(self):
-        pygame.display.flip()
-        self.clock.tick(60)
+    def _init_gl(self):
+        glEnable(GL_DEPTH_TEST)
+        glViewport(0, 0, self.width, self.height)
+        glClearColor(0.1, 0.1, 0.1, 1.0)
 
-    def get_time(self):
-        return pygame.time.get_ticks() / 1000.0
-
-    def poll_events(self):
+    def handle_events(self):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                self.should_close = True
+                self.running = False
+            elif event.type == KEYDOWN:
+                if event.key == K_ESCAPE:
+                    self.running = False
+            self.on_event(event)
 
-    def clear(self, r=0.1, g=0.1, b=0.1, a=1.0):
-        glClearColor(r, g, b, a)
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+    def on_event(self, event):
+        pass
 
-    def close(self):
+    def update(self, dt):
+        pass
+
+    def render(self):
+        pass
+
+    def clean(self):
+        pass
+
+    def run(self):
+        while self.running:
+            dt = self.clock.tick(60) / 1000.0
+            self.handle_events()
+
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+
+            self.update(dt)
+            self.render()
+
+            pygame.display.flip()
+
+        self.clean()
         pygame.quit()

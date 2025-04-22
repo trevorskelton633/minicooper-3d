@@ -1,6 +1,5 @@
-from pathlib import Path
-
 from OpenGL.GL import *
+from pathlib import Path
 
 
 class Material:
@@ -23,6 +22,12 @@ class Material:
     def use(self):
         glUseProgram(self.program)
 
+    def set_float(self, uniform, value):
+        glUniform1f(glGetUniformLocation(self.program, uniform), value)
+
+    def set_vec3(self, uniform, x, y, z):
+        glUniform3f(glGetUniformLocation(self.program, uniform), x, y, z)
+
     def set_mat4(self, uniform, mat):
         glUniformMatrix4fv(glGetUniformLocation(self.program, uniform), 1, GL_FALSE, mat)
 
@@ -43,7 +48,17 @@ class Material:
     def destroy(self):
         glDeleteProgram(self.program)
 
-
-class BasicMaterial(Material):
-    def __init__(self):
+class SimpleMaterial(Material):
+    def __init__(self, r=0.9, g=0.9, b=0.9, opacity=1.0):
         super().__init__('simple/vert.glsl', 'simple/frag.glsl')
+
+        self.set_color(r, g, b)
+        self.set_opacity(opacity)
+
+    def set_color(self, r, g, b):
+        self.use()
+        self.set_vec3('uColor', r, g, b)
+
+    def set_opacity(self, a):
+        self.use()
+        self.set_float('uOpacity', a)
