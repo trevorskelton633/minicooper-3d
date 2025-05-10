@@ -1,4 +1,4 @@
 from .camera import *
-from .material import *
+from .shader import *
 from .mesh import *
 from .window import *

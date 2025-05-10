@@ -2,7 +2,7 @@ from OpenGL.GL import *
 from pathlib import Path
 
 
-class Material:
+class Shader:
     def __init__(self, vertex_file, fragment_file):
         vertex_shader = self.compile_shader(GL_VERTEX_SHADER, vertex_file)
         fragment_shader = self.compile_shader(GL_FRAGMENT_SHADER, fragment_file)
@@ -48,7 +48,7 @@ class Material:
     def destroy(self):
         glDeleteProgram(self.program)
 
-class SimpleMaterial(Material):
+class ColorShader(Shader):
     def __init__(self, r=0.9, g=0.9, b=0.9, opacity=1.0):
         super().__init__('simple/vert.glsl', 'simple/frag.glsl')
 
@@ -62,3 +62,7 @@ class SimpleMaterial(Material):
     def set_opacity(self, a):
         self.use()
         self.set_float('uOpacity', a)
+
+class TextureShader(Shader):
+    def __init__(self):
+        super().__init__('texture/vert.glsl', 'texture/frag.glsl')

@@ -38,7 +38,7 @@ source .venv/bin/activate
 ### Install Dependencies
 
 ```Shell
-pip -r requirements.txt
+pip install -r requirements.txt
 ```
 
 ### Run Program
