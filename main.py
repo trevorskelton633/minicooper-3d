@@ -1,21 +1,44 @@
 import glm
 import numpy as np
 
-from pathlib import Path
 from src.engine.renderer import *
 
-class MyCubeMesh(CustomMesh):
-    def __init__(self):
-        super().__init__(
-            Path(__file__).resolve().parent/'assets'/'models'/'custom'/'cube.model',
-            Path(__file__).resolve().parent/'assets'/'textures'/'container.jpg')
 
-
-class CooperMesh(CustomMesh):
+class CubeModel(Model):
     def __init__(self):
-        super().__init__(
-            Path(__file__).resolve().parent/'assets'/'models'/'custom'/'mini-cooper.model',
-            Path(__file__).resolve().parent/'assets'/'textures'/'mini-cooper.png')
+        super().__init__()
+
+        self.shaders = {
+            'texture': TextureShader()
+        }
+
+    def load_model(self):
+        return parse_custom_mesh(Path(__file__).resolve().parent/'assets'/'models'/'custom'/'cube.model')
+
+    def load_textures(self):
+        return [load_texture(Path(__file__).resolve().parent/'assets'/'textures'/'container.jpg')]
+
+    def draw(self, projection, view):
+        self.shaders['texture'].use()
+
+        self.shaders['texture'].set_mat4('uProjection', projection)
+        self.shaders['texture'].set_mat4('uView', view)
+        self.shaders['texture'].set_mat4('uModel', np.array(self.final_model_matrix.to_list(), dtype=np.float32))
+
+        glBindTexture(GL_TEXTURE_2D, self.textures[0])
+        for group in self.mesh_groups:
+            offset = group['start'] * ctypes.sizeof(ctypes.c_uint)
+            glDrawElements(GL_TRIANGLES, group['count'], GL_UNSIGNED_INT, ctypes.c_void_p(offset))
+        glBindTexture(GL_TEXTURE_2D, 0)
+
+class MiniCooperModel(Model):
+    def __init__(self):
+        super().__init__()
+
+        self.shaders = {
+            'color': ColorShader(),
+            'texture': TextureShader()
+        }
 
         self.colormap = {
             'Upper Driver Wiper': (0.2, 0.2, 0.2),
@@ -33,29 +56,56 @@ class CooperMesh(CustomMesh):
 			'Front Passenger Tire': (0.1, 0.1, 0.1),
 			'Rear Driver Tire': (0.1, 0.1, 0.1),
 			'Rear Passenger Tire': (0.1, 0.1, 0.1),
-			'Brakes': (0.75, 0.75, 0.75)
+			'Brakes': (0.75, 0.75, 0.75),
+            'Rear View Mirror': (0.1, 0.1, 0.1),
+            'Interior': (0.1, 0.1, 0.1),
+            'Driver': (0.2235, 1.0, 0.0784),
+            'Chair': (0.68, 0.68, 0.68),
+            'Windows': (0.1, 0.1, 0.1)
         }
 
-    def draw(self, shader):
-        self.bind()
-        for group in self.groups:
-            # if group['name'] in self.colormap:
-            #     shader.set_color(*self.colormap[group['name']])
-            # else:
-            #     shader.set_color(0.75, 0.75, 0.75)
-            glDrawElements(GL_TRIANGLES, group['count'], GL_UNSIGNED_INT, ctypes.c_void_p(group['start'] * 4))
-        self.unbind()
+    def load_model(self):
+        return parse_custom_mesh(Path(__file__).resolve().parent/'assets'/'models'/'custom'/'mini-cooper.model')
+
+    def load_textures(self):
+        return [load_texture(Path(__file__).resolve().parent/'assets'/'textures'/'mini-cooper.png')]
+
+    def draw(self, projection, view):
+        for group in self.mesh_groups:
+            if group['name'] in self.colormap:
+                self.shaders['color'].use()
+
+                self.shaders['color'].set_mat4('uProjection', projection)
+                self.shaders['color'].set_mat4('uView', view)
+                self.shaders['color'].set_mat4('uModel', np.array(self.final_model_matrix.to_list(), dtype=np.float32))
+
+                if group['name'] == 'Windows':
+                    glEnable(GL_BLEND)
+                    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+                    self.shaders['color'].set_opacity(0.3)
+                else:
+                    glDisable(GL_BLEND)
+
+                self.shaders['color'].set_color(*self.colormap[group['name']])
+
+                offset = group['start'] * ctypes.sizeof(ctypes.c_uint)
+                glDrawElements(GL_TRIANGLES, group['count'], GL_UNSIGNED_INT, ctypes.c_void_p(offset))
+            else:
+                glBindTexture(GL_TEXTURE_2D, self.textures[0])
+                self.shaders['texture'].use()
+
+                self.shaders['texture'].set_mat4('uProjection', projection)
+                self.shaders['texture'].set_mat4('uView', view)
+                self.shaders['texture'].set_mat4('uModel', np.array(self.final_model_matrix.to_list(), dtype=np.float32))
+
+                offset = group['start'] * ctypes.sizeof(ctypes.c_uint)
+                glDrawElements(GL_TRIANGLES, group['count'], GL_UNSIGNED_INT, ctypes.c_void_p(offset))
+                glBindTexture(GL_TEXTURE_2D, 0)
 
 
 class App(Window):
     def __init__(self, width=800, height=600, title="Mini Cooper 3D", vsync=True):
         super().__init__(width, height, title, vsync)
-
-        # self.shader = ColorShader()
-        self.shader = TextureShader()
-
-        # self.mesh = MyCubeMesh()
-        self.mesh = CooperMesh()
 
         self.camera = FreeCamera(glm.vec3(0.0, 0.0, 2.0))
         # pygame.mouse.set_visible(False)
@@ -64,6 +114,9 @@ class App(Window):
         self.angle = 0
 
         self.render_mode = 0
+
+        # self.model = CubeModel()
+        self.model = MiniCooperModel()
 
     def on_event(self, event):
         if event.type == KEYDOWN:
@@ -95,25 +148,17 @@ class App(Window):
         self.angle += dt * 45
 
     def render(self):
-        self.shader.use()
+        glClearColor(0.68, 0.68, 0.68, 1.0)
 
-        projection = glm.perspective(glm.radians(self.camera.fov), self.width / self.height, 0.1, 1000.0)
+        projection = np.array(glm.perspective(glm.radians(self.camera.fov), self.width / self.height, 0.1, 1000.0).to_list())
+        view = np.array(self.camera.get_view_matrix().to_list())
 
-        self.shader.set_mat4('uProjection', np.array(projection.to_list()))
-        self.shader.set_mat4('uView', np.array(self.camera.get_view_matrix().to_list()))
-
-        model_mat = self.mesh.model_matrix
-        model_mat = glm.scale(model_mat, glm.vec3(1.0))
-        model_mat = glm.rotate(model_mat, glm.radians(-60), glm.vec3(1.0, 0.0, 0.0))
-        model_mat = glm.rotate(model_mat, glm.radians(self.angle), glm.vec3(0.0, 0.0, 1.0))
-        model_mat = glm.translate(model_mat, glm.vec3(0.0))
-        self.shader.set_mat4('uModel', np.array(model_mat.to_list(), dtype=np.float32))
-
-        self.mesh.draw(self.shader)
+        self.model.rotate(-60, glm.vec3(1.0, 0.0, 0.0))
+        self.model.rotate(self.angle, glm.vec3(0.0, 0.0, 1.0))
+        self.model.render(projection, view)
 
     def clean(self):
-        self.mesh.destroy()
-        self.shader.destroy()
+        self.model.destroy()
 
 
 if __name__ == '__main__':
