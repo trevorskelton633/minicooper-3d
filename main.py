@@ -33,8 +33,6 @@ class CubeModel(Model):
 
 class MiniCooperModel(Model):
     def __init__(self):
-        super().__init__()
-
         self.shaders = {
             'color': ColorShader(),
             'texture': TextureShader()
@@ -56,7 +54,7 @@ class MiniCooperModel(Model):
 			'Front Passenger Tire': (0.1, 0.1, 0.1),
 			'Rear Driver Tire': (0.1, 0.1, 0.1),
 			'Rear Passenger Tire': (0.1, 0.1, 0.1),
-			'Brakes': (0.75, 0.75, 0.75),
+			'Brakes': (0.50, 0.50, 0.50),
             'Rear View Mirror': (0.1, 0.1, 0.1),
             'Interior': (0.1, 0.1, 0.1),
             'Driver': (0.2235, 1.0, 0.0784),
@@ -64,20 +62,35 @@ class MiniCooperModel(Model):
             'Windows': (0.1, 0.1, 0.1)
         }
 
+        self.rim_centers = {}
+
+        self.rim_angle = 0
+
+        super().__init__()
+
     def load_model(self):
         return parse_custom_mesh(Path(__file__).resolve().parent/'assets'/'models'/'custom'/'mini-cooper.model')
 
     def load_textures(self):
         return [load_texture(Path(__file__).resolve().parent/'assets'/'textures'/'mini-cooper.png')]
 
+    def process_vertices(self):
+        for group in self.mesh_groups:
+            if 'Rim' in group['name']:
+                indices = self.indices[group['start']:(group['start']+group['count'])]
+                vertices = self.vertices[np.unique(indices)]
+                positions = vertices[:, :3]
+                center = np.mean(positions, axis=0)
+                self.rim_centers[group['name']] = center
+
+        print(self.rim_centers)
+
     def draw(self, projection, view):
         for group in self.mesh_groups:
             if group['name'] in self.colormap:
                 self.shaders['color'].use()
 
-                self.shaders['color'].set_mat4('uProjection', projection)
-                self.shaders['color'].set_mat4('uView', view)
-                self.shaders['color'].set_mat4('uModel', np.array(self.final_model_matrix.to_list(), dtype=np.float32))
+                self.shaders['color'].set_color(*self.colormap[group['name']])
 
                 if group['name'] == 'Windows':
                     glEnable(GL_BLEND)
@@ -86,10 +99,18 @@ class MiniCooperModel(Model):
                 else:
                     glDisable(GL_BLEND)
 
-                self.shaders['color'].set_color(*self.colormap[group['name']])
+                self.shaders['color'].set_mat4('uProjection', projection)
+                self.shaders['color'].set_mat4('uView', view)
 
-                offset = group['start'] * ctypes.sizeof(ctypes.c_uint)
-                glDrawElements(GL_TRIANGLES, group['count'], GL_UNSIGNED_INT, ctypes.c_void_p(offset))
+                if 'Rim' in group['name']:
+                    center = self.rim_centers[group['name']]
+                    mat = glm.translate(self.model_matrix, center)
+                    mat = glm.rotate(mat, glm.radians(self.rim_angle), glm.vec3(1.0, 0.0, 0.0))
+                    mat = glm.translate(mat, -center)
+                    mat = self.translate_matrix * self.rotate_matrix * self.scale_matrix * mat
+                    self.shaders['color'].set_mat4('uModel', np.array(mat.to_list(), dtype=np.float32))
+                else:
+                    self.shaders['color'].set_mat4('uModel', np.array(self.final_model_matrix.to_list(), dtype=np.float32))
             else:
                 glBindTexture(GL_TEXTURE_2D, self.textures[0])
                 self.shaders['texture'].use()
@@ -98,9 +119,9 @@ class MiniCooperModel(Model):
                 self.shaders['texture'].set_mat4('uView', view)
                 self.shaders['texture'].set_mat4('uModel', np.array(self.final_model_matrix.to_list(), dtype=np.float32))
 
-                offset = group['start'] * ctypes.sizeof(ctypes.c_uint)
-                glDrawElements(GL_TRIANGLES, group['count'], GL_UNSIGNED_INT, ctypes.c_void_p(offset))
-                glBindTexture(GL_TEXTURE_2D, 0)
+            offset = group['start'] * ctypes.sizeof(ctypes.c_uint)
+            glDrawElements(GL_TRIANGLES, group['count'], GL_UNSIGNED_INT, ctypes.c_void_p(offset))
+            glBindTexture(GL_TEXTURE_2D, 0)
 
 
 class App(Window):
@@ -155,6 +176,7 @@ class App(Window):
 
         self.model.rotate(-60, glm.vec3(1.0, 0.0, 0.0))
         self.model.rotate(self.angle, glm.vec3(0.0, 0.0, 1.0))
+        self.model.rim_angle = self.angle
         self.model.render(projection, view)
 
     def clean(self):

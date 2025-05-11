@@ -13,7 +13,9 @@ def parse_custom_mesh(path):
         vertices = [list(map(float, f.readline().strip().split())) for _ in range(vertex_count)]
 
         index_count = int(f.readline().strip())
-        indices = [list(map(int, f.readline().strip().split())) for _ in range(index_count)]
+        indices = []
+        for _ in range(index_count):
+            indices += list(map(int, f.readline().strip().split()))
 
         group_re = re.compile(r'(?P<group_start>\d+) (?P<group_end>\d+) (?P<group_name>[\w ]+)')
         group_count = int(f.readline().strip())
@@ -43,6 +45,8 @@ class Model:
         self.scale_matrix = glm.mat4(1.0)
         self.model_matrix = self._normalize_model()
 
+        self.process_vertices()
+
         del self.vertices
         del self.indices
 
@@ -66,6 +70,9 @@ class Model:
         max_dim = np.max(size)
 
         return glm.translate(glm.scale(glm.mat4(1.0), glm.vec3(1.0 / max_dim)), -glm.vec3(*center))
+
+    def process_vertices(self):
+        pass
 
     def scale(self, magnitude):
         self.scale_matrix = glm.scale(self.scale_matrix, magnitude)
@@ -96,7 +103,7 @@ class Model:
             shader.destroy()
 
         for texture in self.textures:
-            glDeleteTextures(1, texture)
+            glDeleteTextures(1, int(texture))
 
         self.gl_indices.destroy()
         self.gl_vertices.destroy()
